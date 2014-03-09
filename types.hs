@@ -13,7 +13,7 @@ import Data.List
 type Procedure = [Command]
 
 class Translatable a where
-  translate :: a -> [Instruction]
+  translate :: a -> Int -> [Instruction]
 
 data Command where
   Arithmetic' :: Arithmetic -> Command 
@@ -91,6 +91,7 @@ data Instruction = AInstruction String | CInstruction  {
 instance Assemblable Instruction where
   toAssembly (AInstruction s) = "@" ++ s
   --toAssembly (AInstruction a) = "@" ++ show i
+  toAssembly (Pseudo s) = "(" ++ s ++ ")"
   toAssembly (CInstruction d c j) = dshow ++ toAssembly c ++ jshow
     where dshow = (join "" $ map show d) ++ if d == [] then "" else "="
           jshow = case j of
