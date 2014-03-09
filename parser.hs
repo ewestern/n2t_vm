@@ -79,12 +79,12 @@ pThat = reserved "that" >> return That
 pPoint = reserved "pointer" >> return Pointer
 pTemp = reserved "temp" >> return Temp
 pAdd = reserved "add" >> return Add
-pAnd = reserved "and" >> return And
+pAnd = reserved "and" >> return And'
 pNeg = reserved "neg" >> return Neg
-pNot = reserved "not" >> return Not
+pNot = reserved "not" >> return Not'
 pSub = reserved "sub" >> return Sub
 pEq = reserved "eq" >> return Eq
 pGt = reserved "gt" >> return Gt
 pLt = reserved "lt" >> return Lt
-pOr = reserved "or" >> return Or
+pOr = reserved "or" >> return Or'
 

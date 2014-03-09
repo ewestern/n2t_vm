@@ -6,9 +6,10 @@ import Text.Parsec.String
 import qualified Data.HashTable.ST.Cuckoo as T
 import Data.String.Utils
 import Data.Maybe
-
-type SP = Int
-type HashTable s k v = T.HashTable s k v
+import Data.Monoid
+import Data.List
+--type SP = Int
+--type HashTable s k v = T.HashTable s k v
 type Procedure = [Command]
 
 class Translatable a where
@@ -19,6 +20,7 @@ data Command where
   MemAccess' :: MemAccess -> Command
   deriving (Show)
   
+
 data Arithmetic = Add | Sub | Neg | Eq | Gt | Lt | And' | Or' | Not' deriving (Show)
 
 data MemAccess = Pop MemLoc | Push MemLoc deriving (Show)
@@ -27,10 +29,10 @@ data Segment = Argument | Local | Static | Constant | This | That | Pointer | Te
 
 data MemLoc = MemLoc {
   name :: Segment,
-  index :: Int
+  index :: Integer
 } deriving (Show)
 
-
+--comm = Arithmetic' Add
 
 --data FlowCommand = 
 
@@ -40,16 +42,17 @@ data MemLoc = MemLoc {
 class Assemblable a where
   toAssembly :: a -> String
 
-data Operator = Plus | Minus | Or | And | Not deriving (Eq, Ord)
+data Operator = Plus | Minus | Or | And | Not deriving (Eq, Ord, Show)
 data Register = A | M | D  deriving (Show, Eq, Ord)
-data Bin = Zero | One deriving (Eq, Ord)
+data Bin = Zero | One deriving (Eq, Ord, Show)
 data Jump = JGT | JEQ | JGE | JLT | JNE | JLE | JMP deriving (Show, Eq, Ord)
 data Comp = Comp {
   reg1 :: Maybe Register,
   op :: Maybe Operator,
   reg2 :: Maybe Register,
   bin :: Maybe Bin
-} deriving (Eq, Ord)
+} deriving (Eq, Ord, Show)
+
 
 instance Assemblable Comp where
   toAssembly (Comp r o r2 b) = mshow r ++ mshow o ++ mshow r2 ++ mshow b
@@ -70,14 +73,20 @@ instance Assemblable Bin where
                   Zero  -> "0"
                   One   -> "1"
 
+instance Assemblable Register where
+  toAssembly = show
+
+instance Assemblable [Instruction] where
+  toAssembly = (intercalate "\n") . (fmap toAssembly)
+
 data Instruction = AInstruction String | CInstruction  {
     dest :: [Register],
     comp :: Comp,
     jump :: Maybe Jump
-}
+} | Pseudo String deriving (Show)
 
-instance Assemblable Register where
-  toAssembly = show
+--instance Assemblable Register where
+--  toAssembly = show
 
 instance Assemblable Instruction where
   toAssembly (AInstruction s) = "@" ++ s
@@ -88,5 +97,3 @@ instance Assemblable Instruction where
             Just s -> ";" ++ show s
             Nothing -> ""
 
-cinst = CInstruction [D] (Comp (Just D) (Just Plus) (Just M) Nothing) (Just JMP) 
-pop = Pop (MemLoc Local 5)
