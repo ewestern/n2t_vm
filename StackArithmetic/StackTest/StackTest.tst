@@ -11,7 +11,7 @@ output-list RAM[0]%D2.6.2
 
 set RAM[0] 256,
 
-repeat 1000 {
+repeat 400 {
   ticktock;
 }
 
