@@ -1,19 +1,18 @@
 {-#LANGUAGE GADTs #-}
 {-#LANGUAGE FlexibleInstances #-}
+
 module Types where
 import Text.Parsec
 import Text.Parsec.String
-import qualified Data.HashTable.ST.Cuckoo as T
 import Data.String.Utils
 import Data.Maybe
 import Data.Monoid
 import Data.List
---type SP = Int
---type HashTable s k v = T.HashTable s k v
+
 type Procedure = [Command]
 
 class Translatable a where
-  translate :: a -> Int -> [Instruction]
+  translate :: a -> (Int, String) -> [Instruction]
 
 data Command where
   Arithmetic' :: Arithmetic -> Command 
@@ -31,12 +30,6 @@ data MemLoc = MemLoc {
   name :: Segment,
   index :: Integer
 } deriving (Show)
-
---comm = Arithmetic' Add
-
---data FlowCommand = 
-
---data FuncCommand = 
 
 -- ASSEMBLY TYPES
 class Assemblable a where

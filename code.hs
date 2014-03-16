@@ -13,13 +13,78 @@ instance Translatable MemAccess where
                                             CInstruction [D] (Comp (Just A) Nothing Nothing Nothing) Nothing,
                                             AInstruction "SP",
                                             CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing,                                          
-                                            CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing,
-                                            AInstruction "SP",
-                                            movePointer Plus]
+                                            CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing] ++
+                                            movePointer Plus
+  translate (Push (MemLoc Local i)) n    = translatePushSegments "LCL" i
+  translate (Push (MemLoc Argument i)) n = translatePushSegments "ARG" i
+  translate (Push (MemLoc This i)) n     = translatePushSegments "THIS" i
+  translate (Push (MemLoc That i)) n     = translatePushSegments "THAT" i
+  translate (Pop (MemLoc Local i)) n     = translatePopSegments "LCL" i
+  translate (Pop (MemLoc Argument i)) n  = translatePopSegments "ARG" i
+  translate (Pop (MemLoc This i)) n      = translatePopSegments "THIS" i
+  translate (Pop (MemLoc That i)) n      = translatePopSegments "THAT" i
+  translate (Pop (MemLoc Temp i)) n      = translateTempPop 5 i
+  translate (Push (MemLoc Temp i)) n     = translateTempPush 5 i
+
+  translate (Pop (MemLoc Pointer i)) n   = translateTempPop 3 i
+  translate (Push (MemLoc Pointer i)) n  = translateTempPush 3 i 
+
+  translate (Pop (MemLoc Static i)) (n, f)   =  movePointer Minus ++
+                                                [CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+                                                AInstruction $ f ++ "." ++ show i,
+                                                CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing]
+
+  translate (Push (MemLoc Static i)) (n, f)  =  [AInstruction $ f ++ "." ++ show i,
+                                                CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+                                                AInstruction "SP",
+                                                CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+                                                CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing] ++
+                                                movePointer Plus
 
   translate _ _                         = []
 
+translatePushSegments :: String -> Integer -> [Instruction]
+translatePushSegments str i = [AInstruction (show i),
+                          CInstruction [D] (Comp (Just A) Nothing Nothing Nothing) Nothing,
+                          AInstruction str,
+                          CInstruction [A] (Comp (Just M) (Just Plus) (Just D) Nothing) Nothing,
+                          CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+                          AInstruction "SP",
+                          CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+                          CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing] ++
+                          movePointer Plus
 
+translateTempPush :: Integer -> Integer -> [Instruction]
+translateTempPush base i = [AInstruction $ "R" ++ (show $ base + i),
+                           CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+                           AInstruction "SP",
+                           CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+                           CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing] ++
+                           movePointer Plus
+
+
+translateTempPop :: Integer -> Integer -> [Instruction]
+translateTempPop base i = movePointer Minus ++
+                        [CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+                        AInstruction $ "R" ++ (show $ base + i),
+                        CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing]
+
+translatePopSegments :: String -> Integer -> [Instruction]
+-- decrement SP
+translatePopSegments str i = [AInstruction (show i), 
+                              CInstruction [D] (Comp (Just A) Nothing Nothing Nothing) Nothing, 
+                              AInstruction str, 
+                              CInstruction [D] (Comp (Just M) (Just Plus) (Just D) Nothing) Nothing,
+                              AInstruction "R13",
+                              CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing] ++
+                              -- address is stashed at R13
+                              movePointer Minus ++
+                              [CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+                              AInstruction "R13",
+                              CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+                              CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing]
+                              
+                              
 instance Translatable Arithmetic where
   translate Add n   = makeBinaryOp Plus
   translate Sub n   = makeBinaryOp Minus
@@ -29,9 +94,9 @@ instance Translatable Arithmetic where
   translate Not' n  = makeUnaryOp Not
   translate Neg  n  = makeUnaryOp Minus
 
-  translate Eq   n  = makeComparisonOp JEQ n
-  translate Gt   n  = makeComparisonOp JGT n
-  translate Lt   n  = makeComparisonOp JLT n
+  translate Eq   (n, _)  = makeComparisonOp JEQ n
+  translate Gt   (n, _)  = makeComparisonOp JGT n
+  translate Lt   (n, _)  = makeComparisonOp JLT n
   --translate Neg = makeBinaryOp
 
 initStack :: [Instruction]
@@ -40,60 +105,55 @@ initStack = [AInstruction "256",
              AInstruction "SP",
              CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing]
 
-movePointer :: Operator -> Instruction
--- decrement the address @ SP
--- store the decremented address @ SP
--- set A to the SP address
--- now M will refer to the value at that address
-movePointer op = CInstruction [A,M] (Comp (Just M) (Just op) Nothing (Just One)) Nothing
+movePointer :: Operator -> [Instruction]
+movePointer op = [AInstruction "SP",
+--want to store the incremented address in @SP (M=) as well as have M refer to the value addressed by that incremented address (A=)
+                  CInstruction [A,M] (Comp (Just M) (Just op) Nothing (Just One)) Nothing]
+
 
 
 makeBinaryOp :: Operator -> [Instruction]
-makeBinaryOp o =    [AInstruction "SP",
-                     movePointer Minus, 
-                     CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing,
-                     AInstruction "SP",
-                     movePointer Minus,
-                     CInstruction [M] (Comp (Just D) (Just o) (Just M) Nothing) Nothing, --M = DopM => M is now the value of the computation
-                     AInstruction "SP",
-                     movePointer Plus]
+makeBinaryOp o =     movePointer Minus ++ 
+                     [CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing] ++
+                     movePointer Minus ++
+                     [CInstruction [M] (Comp (Just M) (Just o) (Just D) Nothing) Nothing] ++ --M = DopM => M is now the value of the computation
+                     movePointer Plus
 
 makeComparisonOp :: Jump -> Int -> [Instruction]
-makeComparisonOp jmp n = [AInstruction "SP",
-                         movePointer Minus,
-                         CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing,
-                         AInstruction "SP",
-                         movePointer Minus,
-                         CInstruction [D] (Comp (Just D) (Just Minus) (Just M) Nothing) Nothing,
+makeComparisonOp jmp n = movePointer Minus ++
+                         [CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing] ++
+                         movePointer Minus ++
+                         [CInstruction [D] (Comp (Just M) (Just Minus) (Just D) Nothing) Nothing,
                          AInstruction $ "COMP"  ++ show n, -- Need way to generate these automagically
                          CInstruction [] (Comp (Just D) Nothing Nothing Nothing) (Just jmp)] ++ -- JUMP!
                          (loadBool False) ++
-                         [movePointer Plus,
+                         movePointer Plus ++
+                         --need to jump over this!!
+                         [AInstruction $ "COMP" ++ show (n + 1),
+                         CInstruction [] (Comp Nothing Nothing Nothing (Just Zero)) (Just JMP),
                          Pseudo $ "COMP"  ++ show n] ++
                          loadBool True ++
-                         [movePointer Plus]
+                         movePointer Plus ++
+                         [Pseudo $ "COMP" ++ show (n + 1)]
 
 loadBool :: Bool -> [Instruction]
-loadBool  b =  [AInstruction $ replicate 16 char,
-               CInstruction [D] (Comp (Just A) Nothing Nothing Nothing) Nothing,
-               AInstruction "SP",
-               CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+loadBool  b =  [AInstruction "0"] ++
+               [if b 
+                then CInstruction [D] (Comp (Just A) (Just Minus) Nothing (Just One)) Nothing
+                else CInstruction [D] (Comp (Just A) Nothing Nothing Nothing) Nothing]++
+                [CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing,
                CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing]
-                where char = if b then '1' else '0'
+
 
 makeUnaryOp :: Operator -> [Instruction]
-makeUnaryOp o =   [AInstruction "SP",
-                   movePointer Minus,
-                   CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing, -- A = M => M is the value of the topmost item in the stack
-                   CInstruction [M] (Comp Nothing (Just o) (Just M) Nothing) Nothing, -- perform op on M => 
-                   movePointer Plus]
+makeUnaryOp o =   movePointer Minus ++
+                   [CInstruction [M] (Comp Nothing (Just o) (Just M) Nothing) Nothing] ++ -- perform op on M => 
+                   movePointer Plus
 
+toFilter :: [[Instruction]]
+toFilter = [movePointer Minus ++ movePointer Plus,
+            movePointer Plus ++ movePointer Minus]
 
 instance Translatable Command where
   translate (MemAccess' a)  = translate a
   translate (Arithmetic' a) = translate a
-
-
---push = MemAccess' (Push (MemLoc Constant 5))
---cinst = CInstruction [D] (Comp (Just D) (Just Plus) (Just M) Nothing) (Just JMP) 
---pop = MemAccess' (Pop (MemLoc Local 5))
