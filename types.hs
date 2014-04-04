@@ -17,6 +17,8 @@ class Translatable a where
 data Command where
   Arithmetic' :: Arithmetic -> Command 
   MemAccess' :: MemAccess -> Command
+  Flow' :: Flow -> Command
+  FCall' :: FCall -> Command
   deriving (Show)
   
 
@@ -25,6 +27,10 @@ data Arithmetic = Add | Sub | Neg | Eq | Gt | Lt | And' | Or' | Not' deriving (S
 data MemAccess = Pop MemLoc | Push MemLoc deriving (Show)
 
 data Segment = Argument | Local | Static | Constant | This | That | Pointer | Temp deriving (Show)
+
+data Flow = Label String | Goto String | IfGoto String deriving (Show) 
+
+data FCall = Function String Integer | Call String Integer | Return deriving (Show)
 
 data MemLoc = MemLoc {
   name :: Segment,
