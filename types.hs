@@ -78,6 +78,8 @@ instance Assemblable Register where
 instance Assemblable [Instruction] where
   toAssembly = (intercalate "\n") . (fmap toAssembly)
 
+--instance
+
 data Instruction = AInstruction String | CInstruction  {
     dest :: [Register],
     comp :: Comp,

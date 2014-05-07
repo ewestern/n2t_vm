@@ -4,7 +4,7 @@ import Numeric
 import Data.Char
 
 bootstrap :: [Instruction]
-bootstrap = [AInstruction "256",
+bootstrap = [AInstruction "261",
              CInstruction [D] (Comp (Just A) Nothing Nothing Nothing) Nothing,
              AInstruction "SP",
              CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing] ++
@@ -72,7 +72,7 @@ instance Translatable FCall where
                                   --translate move arg
                                         [AInstruction "SP",
                                         CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing,
-                                        AInstruction $ show $ n + 5,
+                                        AInstruction $ show $ nargs + 5,
                                         CInstruction [D] (Comp (Just D) (Just Minus) (Just A) Nothing) Nothing,
                                         AInstruction "ARG",
                                         CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing,
@@ -127,7 +127,6 @@ translateFrameToPoint :: String -> Integer -> [Instruction]
 translateFrameToPoint point delta = [AInstruction $ show delta,
                                      CInstruction [D] (Comp (Just A) Nothing Nothing Nothing) Nothing,
                                      AInstruction "R13",
-                                     --CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing,
                                      CInstruction [A] (Comp (Just M) (Just Minus) (Just D) Nothing) Nothing,
                                      CInstruction [D] (Comp (Just M) Nothing Nothing Nothing) Nothing,
                                      AInstruction point,
@@ -229,6 +228,7 @@ makeComparisonOp jmp n = movePointer Minus ++
                          [CInstruction [D] (Comp (Just M) (Just Minus) (Just D) Nothing) Nothing,
                          AInstruction $ "COMP"  ++ show n, -- Need way to generate these automagically
                          CInstruction [] (Comp (Just D) Nothing Nothing Nothing) (Just jmp)] ++ -- JUMP!
+                         -- if COMP than
                          (loadBool False) ++
                          movePointer Plus ++
                          --need to jump over this!!
@@ -240,17 +240,17 @@ makeComparisonOp jmp n = movePointer Minus ++
                          [Pseudo $ "COMP" ++ show (n + 1)]
 
 loadBool :: Bool -> [Instruction]
-loadBool  b =  [AInstruction "0"] ++
-               [if b
-                then CInstruction [D] (Comp (Just A) (Just Minus) Nothing (Just One)) Nothing
-                else CInstruction [D] (Comp (Just A) Nothing Nothing Nothing) Nothing]++
-                [CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing,
-               CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing]
+--loadBool  b =  [AInstruction "SP"] ++
+--               [if b
+--                then CInstruction [D] (Comp (Just A) (Just Minus) Nothing (Just One)) Nothing
+--                else CInstruction [D] (Comp (Just A) Nothing Nothing Nothing) Nothing]++
+--                [CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing,
+--               CInstruction [M] (Comp (Just D) Nothing Nothing Nothing) Nothing]
 
---loadBool b = [AInstruction "SP", 
---             CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing] ++ loadBoolC b
---              where  loadBoolC True = [CInstruction [M] (Comp Nothing (Just Minus) Nothing (Just One)) Nothing]
---                     loadBoolC False= [CInstruction [M] (Comp Nothing Nothing Nothing (Just Zero)) Nothing ]
+loadBool b = [AInstruction "SP", 
+             CInstruction [A] (Comp (Just M) Nothing Nothing Nothing) Nothing] ++ loadBoolC b
+              where  loadBoolC True = [CInstruction [M] (Comp Nothing (Just Minus) Nothing (Just One)) Nothing]
+                     loadBoolC False= [CInstruction [M] (Comp Nothing Nothing Nothing (Just Zero)) Nothing ]
 
 
 makeUnaryOp :: Operator -> [Instruction]
